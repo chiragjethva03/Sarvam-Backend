@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
     res.send("Hello, Sarvam Backend!");
 });
 
-const otpStorage = {};
+
 
 app.post("/send-otp", async (req, res) => {
     const { email } = req.body;
@@ -62,21 +62,30 @@ app.post("/send-otp", async (req, res) => {
     }
 });
 
-// ✅ **API: Verify OTP**
+const otpStorage = {};
+
 app.post("/verify-otp", (req, res) => {
     const { email, otp } = req.body;
 
+    console.log("🔹 Incoming OTP Verification Request:", { email, otp });
+
     if (!email || !otp) {
+        console.log("❌ Missing email or OTP");
         return res.status(400).json({ message: "Email and OTP are required!" });
     }
 
     if (otpStorage[email] && otpStorage[email] === otp) {
+        console.log("✅ OTP Verified Successfully!");
         delete otpStorage[email]; // Remove OTP after successful verification
-        res.json({ message: "OTP verified successfully!" });
+        return res.json({ message: "OTP verified successfully!" });
     } else {
-        res.status(400).json({ message: "Invalid OTP! Try again." });
+        console.log("❌ Invalid OTP for:", email);
+        return res.status(400).json({ message: "Invalid OTP! Try again." });
     }
 });
+
+
+
 
 // Sign-up API Route
 app.post("/signup", (req, res) => {
