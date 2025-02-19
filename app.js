@@ -1,18 +1,17 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const mysql = require("mysql2");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
+const client = require("./database/connection")
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const dotenv = require("dotenv");
+ 
 
 const app = express();
 
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    database: 'Sarvam',
-    password: '@Jethvac0629'
-});
+const SECRET_KEY = process.env.JWT_SECRET || "sarvam_backned_2336bcghbhbW@"; 
 
 
 // Middleware
@@ -67,13 +66,6 @@ const otpStorage = {};
 app.post("/verify-otp", (req, res) => {
     const { email, otp } = req.body;
 
-    console.log("🔹 Incoming OTP Verification Request:", { email, otp });
-
-    if (!email || !otp) {
-        console.log("❌ Missing email or OTP");
-        return res.status(400).json({ message: "Email and OTP are required!" });
-    }
-
     if (otpStorage[email] && otpStorage[email] === otp) {
         console.log("✅ OTP Verified Successfully!");
         delete otpStorage[email]; // Remove OTP after successful verification
@@ -84,23 +76,90 @@ app.post("/verify-otp", (req, res) => {
     }
 });
 
-
-
-
 // Sign-up API Route
-app.post("/signup", (req, res) => {
+app.post("/signup", async (req, res) => {
+    try {
+      const { username, email, mobileNumber, password } = req.body;
+  
+      // ✅ Check if the email or mobile number already exists
+      const existingUser = await client.query(
+        `SELECT * FROM users WHERE email = $1 OR mobile_number = $2`,
+        [email, mobileNumber]
+      );
+  
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({
+          message: "❌ Email or mobile number already registered!",
+        });
+      }
+  
+      // ✅ Hash the password before storing
+      const hashedPassword = await bcrypt.hash(password, 10);
+  
+      // ✅ Insert user data into PostgreSQL
+      const result = await client.query(
+        `INSERT INTO users (username, email, mobile_number, password) 
+         VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, mobile_number`,
+        [username, email, mobileNumber, hashedPassword]
+      );
+  
+      console.log("✅ User Registered:", result.rows[0]);
+  
+      res.status(201).json({ message: "Signup successful!", user: result.rows[0] });
+    } catch (error) {
+      console.error("❌ Signup Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
 
-    const { username, email, mobileNumber, password } = req.body;
+  app.post("/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    console.log("Received Signup Data:");
-    console.log("Username:", username);
-    console.log("Email:", email);
-    console.log("Password:", password);
-    console.log("Mobile Number:", mobileNumber);
+        // ✅ Check if user exists in the database
+        const userResult = await client.query(
+            `SELECT user_id, username, email, password FROM users WHERE email = $1`,
+            [email]
+        );
 
-    res.json({ message: "Signup successful!", user: { username, email } });
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ message: "❌ Invalid email or password!" });
+        }
+
+        const user = userResult.rows[0];
+
+        // ✅ Compare hashed password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: "❌ Invalid email or password!" });
+        }
+
+        // ✅ Generate JWT Token
+        const token = jwt.sign(
+          { user_id: user.user_id, email: user.email, username: user.username },
+          SECRET_KEY, // ✅ Ensure this is properly defined
+          { expiresIn: "7d" } // Token valid for 7 days
+      );
+
+        console.log("✅ User Logged In:", user.username);
+
+        // ✅ Return success response with JWT token
+        res.status(200).json({
+            message: "Login successful!",
+            token: token,
+            user: {
+                user_id: user.user_id,
+                username: user.username,
+                email: user.email,
+            },
+        });
+    } catch (error) {
+        console.error("❌ Login Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
+  
   
 
 // Start Server
