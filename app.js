@@ -159,6 +159,52 @@ app.post("/signup", async (req, res) => {
     }
 });
 
+app.post("/google-login", async (req, res) => {
+    try {
+        const { email, username, profilePic } = req.body;
+
+        // ✅ Check if user exists
+        const userResult = await client.query(`SELECT * FROM users WHERE email = $1`, [email]);
+
+        let user;
+        if (userResult.rows.length === 0) {
+            // ✅ If user doesn't exist, create a new one
+            const insertResult = await client.query(
+                `INSERT INTO users (username, email, profile_picture, password) VALUES ($1, $2, $3, $4) RETURNING *`,
+                [username, email, profilePic, "GOOGLE_AUTH"] // Dummy password for Google sign-ins
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = userResult.rows[0];
+        }
+
+        // ✅ Generate JWT Token
+        const token = jwt.sign(
+            { user_id: user.user_id, email: user.email, username: user.username },
+            SECRET_KEY,
+            { expiresIn: "7d" }
+        );
+
+        console.log("✅ Google Login:", user.username);
+
+        // ✅ Send response with JWT token
+        res.status(200).json({
+            message: "Google Login Successful!",
+            token: token,
+            user: {
+                user_id: user.user_id,
+                username: user.username,
+                email: user.email,
+                profilePic: user.profile_pic,
+            },
+        });
+    } catch (error) {
+        console.error("❌ Google Login Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
   
   
 
