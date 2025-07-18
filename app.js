@@ -7,11 +7,11 @@ const client = require("./database/connection")
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
- 
+
 
 const app = express();
 
-const SECRET_KEY = process.env.JWT_SECRET || "sarvam_backned_2336bcghbhbW@"; 
+const SECRET_KEY = process.env.JWT_SECRET || "sarvam_backned_2336bcghbhbW@";
 
 
 // Middleware
@@ -79,40 +79,40 @@ app.post("/verify-otp", (req, res) => {
 // Sign-up API Route
 app.post("/signup", async (req, res) => {
     try {
-      const { username, email, mobileNumber, password } = req.body;
-  
-      // ✅ Check if the email or mobile number already exists
-      const existingUser = await client.query(
-        `SELECT * FROM users WHERE email = $1 OR mobile_number = $2`,
-        [email, mobileNumber]
-      );
-  
-      if (existingUser.rows.length > 0) {
-        return res.status(400).json({
-          message: "❌ Email or mobile number already registered!",
-        });
-      }
-  
-      // ✅ Hash the password before storing
-      const hashedPassword = await bcrypt.hash(password, 10);
-  
-      // ✅ Insert user data into PostgreSQL
-      const result = await client.query(
-        `INSERT INTO users (username, email, mobile_number, password) 
-         VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, mobile_number`,
-        [username, email, mobileNumber, hashedPassword]
-      );
-  
-      console.log("✅ User Registered:", result.rows[0]);
-  
-      res.status(201).json({ message: "Signup successful!", user: result.rows[0] });
-    } catch (error) {
-      console.error("❌ Signup Error:", error);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  });
+        const { username, email, mobileNumber, password } = req.body;
 
-  app.post("/login", async (req, res) => {
+        // ✅ Check if the email or mobile number already exists
+        const existingUser = await client.query(
+            `SELECT * FROM users WHERE email = $1 OR mobile_number = $2`,
+            [email, mobileNumber]
+        );
+
+        if (existingUser.rows.length > 0) {
+            return res.status(400).json({
+                message: "❌ Email or mobile number already registered!",
+            });
+        }
+
+        // ✅ Hash the password before storing
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // ✅ Insert user data into PostgreSQL
+        const result = await client.query(
+            `INSERT INTO users (username, email, mobile_number, password) 
+         VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, mobile_number`,
+            [username, email, mobileNumber, hashedPassword]
+        );
+
+        console.log("✅ User Registered:", result.rows[0]);
+
+        res.status(201).json({ message: "Signup successful!", user: result.rows[0] });
+    } catch (error) {
+        console.error("❌ Signup Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+app.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -136,10 +136,10 @@ app.post("/signup", async (req, res) => {
 
         // ✅ Generate JWT Token
         const token = jwt.sign(
-          { user_id: user.user_id, email: user.email, username: user.username },
-          SECRET_KEY, // ✅ Ensure this is properly defined
-          { expiresIn: "7d" } // Token valid for 7 days
-      );
+            { user_id: user.user_id, email: user.email, username: user.username },
+            SECRET_KEY, // ✅ Ensure this is properly defined
+            { expiresIn: "7d" } // Token valid for 7 days
+        );
 
         console.log("✅ User Logged In:", user.username);
 
@@ -205,10 +205,6 @@ app.post("/google-login", async (req, res) => {
 });
 
 
-  
-  
-
-// Start Server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
